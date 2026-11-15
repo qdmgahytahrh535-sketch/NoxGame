@@ -69,10 +69,121 @@ function resizeCanvas() {
 }
 window.addEventListener('resize', resizeCanvas);
 
+// ---- دریاچه‌ها: شکل طبیعی و بدون هم‌پوشانی ----
+function lakeRad(l, theta) {
+    let r = 1;
+    for (let i = 0; i < l.harm.length; i++) {
+        let h = l.harm[i];
+        r += h.a * Math.sin(h.k * theta + h.p);
+    }
+    return r;
+}
+
+// آیا نقطه (در مختصات دنیا) داخل دریاچه است؟ (pad = فاصله ایمنی)
+function insideLake(l, wx, wy, pad) {
+    let dx = wx - l.x;
+    let dy = wy - l.y;
+    let lx = (dx * l.cosR + dy * l.sinR) / l.aspect;
+    let ly = -dx * l.sinR + dy * l.cosR;
+    let d = Math.hypot(lx, ly);
+    let theta = Math.atan2(ly, lx);
+    return d <= l.R * lakeRad(l, theta) + pad;
+}
+
+function buildLakePath(l) {
+    let n = 48;
+    let pts = [];
+    for (let i = 0; i < n; i++) {
+        let a = (i / n) * Math.PI * 2;
+        let r = l.R * lakeRad(l, a);
+        let px = Math.cos(a) * r * l.aspect;
+        let py = Math.sin(a) * r;
+        pts.push({
+            x: l.x + px * l.cosR - py * l.sinR,
+            y: l.y + px * l.sinR + py * l.cosR
+        });
+    }
+    let path = new Path2D();
+    let mid = (p, q) => ({ x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 });
+    let m0 = mid(pts[n - 1], pts[0]);
+    path.moveTo(m0.x, m0.y);
+    for (let i = 0; i < n; i++) {
+        let m = mid(pts[i], pts[(i + 1) % n]);
+        path.quadraticCurveTo(pts[i].x, pts[i].y, m.x, m.y);
+    }
+    path.closePath();
+    return path;
+}
+
+function createLakeCandidate() {
+    let tx = 3 + Math.floor(Math.random() * (mapWidth - 6));
+    let ty = 3 + Math.floor(Math.random() * (mapHeight - 6));
+    let rot = Math.random() * Math.PI;
+    let l = {
+        x: (tx + 0.5) * tileSize,
+        y: (ty + 0.5) * tileSize,
+        R: tileSize * (1.0 + Math.random() * 1.6),
+        aspect: 1 + Math.random() * 0.8,
+        rot: rot,
+        cosR: Math.cos(rot),
+        sinR: Math.sin(rot),
+        harm: [
+            { k: 2, a: 0.10 + Math.random() * 0.15, p: Math.random() * Math.PI * 2 },
+            { k: 3, a: 0.06 + Math.random() * 0.12, p: Math.random() * Math.PI * 2 },
+            { k: 4, a: 0.04 + Math.random() * 0.06, p: Math.random() * Math.PI * 2 },
+            { k: 5, a: 0.02 + Math.random() * 0.05, p: Math.random() * Math.PI * 2 }
+        ]
+    };
+    l.ext = l.R * l.aspect * 1.6 + 5;
+    return l;
+}
+
+// مربع‌هایی که دریاچه (به‌همراه فاصله ایمنی) اشغال می‌کند؛ اگر جای نامناسبی باشد null
+function lakeTileKeys(l) {
+    let pad = tileSize * 0.4;
+    let ext = l.ext + pad;
+    let tx0 = Math.floor((l.x - ext) / tileSize);
+    let tx1 = Math.floor((l.x + ext) / tileSize);
+    let ty0 = Math.floor((l.y - ext) / tileSize);
+    let ty1 = Math.floor((l.y + ext) / tileSize);
+    let keys = [];
+    for (let tx = tx0; tx <= tx1; tx++) {
+        for (let ty = ty0; ty <= ty1; ty++) {
+            let blocked = false;
+            for (let i = 0; i <= 2 && !blocked; i++) {
+                for (let j = 0; j <= 2 && !blocked; j++) {
+                    let px = (tx + i / 2) * tileSize;
+                    let py = (ty + j / 2) * tileSize;
+                    if (insideLake(l, px, py, pad)) blocked = true;
+                }
+            }
+            if (!blocked) continue;
+            if (tx < 1 || ty < 1 || tx > mapWidth - 2 || ty > mapHeight - 2) return null;
+            if (getElevationLevel(tx, ty) >= 6) return null;
+            keys.push(`${tx},${ty}`);
+        }
+    }
+    return keys.length ? keys : null;
+}
+
 // تولید عوارض زمین
 function generateWorld() {
     let totalBlocks = mapWidth * mapHeight;
     let occupiedSet = new Set();
+
+    // اول دریاچه‌ها (تا کوه و بوته هیچ‌وقت روی آب نیفتند)
+    let targetLakeCount = Math.floor(totalBlocks * 0.003);
+    let attempts = 0;
+    while (lakes.length < targetLakeCount && attempts < 40000) {
+        attempts++;
+        let l = createLakeCandidate();
+        let keys = lakeTileKeys(l);
+        if (!keys) continue;
+        if (keys.some(k => occupiedSet.has(k))) continue;
+        keys.forEach(k => occupiedSet.add(k));
+        l.path = buildLakePath(l);
+        lakes.push(l);
+    }
 
     let targetMountainCount = Math.floor(totalBlocks * 0.02);
     while (mountainBlocks.length < targetMountainCount) {
@@ -99,25 +210,6 @@ function generateWorld() {
                 occupiedSet.add(key);
                 bushBlocks.push({ x: rx, y: ry });
             }
-        }
-    }
-
-    let targetLakeCount = Math.floor(totalBlocks * 0.003);
-    let shapeTypes = ['cat', 'fox_tail', 'simple_fish', 'blob'];
-    while (lakes.length < targetLakeCount) {
-        let lx = Math.floor(Math.random() * (mapWidth - 15)) + 5;
-        let ly = Math.floor(Math.random() * (mapHeight - 15)) + 5;
-        let lvl = getElevationLevel(lx, ly);
-        if (lvl < 6) {
-            lakes.push({
-                x: lx * tileSize,
-                y: ly * tileSize,
-                type: shapeTypes[Math.floor(Math.random() * shapeTypes.length)],
-                scale: 0.8 + Math.random() * 0.5,
-                rot: (Math.random() - 0.5) * 0.8,
-                flip: Math.random() < 0.5 ? 1 : -1,
-                seed: Math.random() * 10
-            });
         }
     }
 }
@@ -247,67 +339,23 @@ function drawBush(b) {
 }
 
 function drawLake(l) {
-    let r = tileSize * 0.8 * l.scale;
+    // آب کم‌عمق: نیمه‌شفاف تا زمین زیرش کمی دیده شود
+    ctx.fillStyle = 'rgba(168, 208, 226, 0.6)';
+    ctx.fill(l.path);
+
+    // وسط عمیق‌تر
     ctx.save();
     ctx.translate(l.x, l.y);
-    ctx.rotate(l.rot);
-    ctx.scale(l.flip * r, r);
-    ctx.fillStyle = '#dceaf0';
-
-    if (l.type === 'cat') {
-        // سر گربه: صورت گرد + دو گوش
-        ctx.beginPath();
-        ctx.ellipse(0, 0.1, 1, 0.85, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.moveTo(-0.95, -0.3);
-        ctx.lineTo(-0.8, -1.2);
-        ctx.lineTo(-0.2, -0.7);
-        ctx.closePath();
-        ctx.fill();
-        ctx.beginPath();
-        ctx.moveTo(0.95, -0.3);
-        ctx.lineTo(0.8, -1.2);
-        ctx.lineTo(0.2, -0.7);
-        ctx.closePath();
-        ctx.fill();
-    } else if (l.type === 'fox_tail') {
-        // دم پرپشت روباه: خمیده با نوک تیز
-        ctx.beginPath();
-        ctx.moveTo(-1.0, 0.75);
-        ctx.bezierCurveTo(-0.3, 1.0, 0.9, 0.8, 1.0, -0.1);
-        ctx.bezierCurveTo(1.05, -0.65, 0.5, -1.05, -0.2, -1.1);
-        ctx.bezierCurveTo(0.4, -0.7, 0.55, -0.3, 0.2, 0.05);
-        ctx.bezierCurveTo(-0.2, 0.4, -0.7, 0.45, -1.0, 0.75);
-        ctx.closePath();
-        ctx.fill();
-    } else if (l.type === 'simple_fish') {
-        // ماهی ساده: بدنه بیضی + دم مثلثی
-        ctx.beginPath();
-        ctx.ellipse(-0.2, 0, 0.9, 0.52, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.moveTo(0.5, 0);
-        ctx.lineTo(1.2, -0.55);
-        ctx.lineTo(1.2, 0.55);
-        ctx.closePath();
-        ctx.fill();
-    } else {
-        // لکه: دایره نامنظم
-        ctx.beginPath();
-        let n = 28;
-        for (let i = 0; i <= n; i++) {
-            let a = (i / n) * Math.PI * 2;
-            let rad = 1 + 0.18 * Math.sin(3 * a + l.seed) + 0.1 * Math.sin(5 * a + l.seed * 2);
-            let px = Math.cos(a) * rad;
-            let py = Math.sin(a) * rad;
-            if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-        }
-        ctx.closePath();
-        ctx.fill();
-    }
-
+    ctx.scale(0.6, 0.6);
+    ctx.translate(-l.x, -l.y);
+    ctx.fillStyle = 'rgba(110, 165, 195, 0.28)';
+    ctx.fill(l.path);
     ctx.restore();
+
+    // خط ساحل
+    ctx.strokeStyle = 'rgba(236, 246, 250, 0.5)';
+    ctx.lineWidth = 2;
+    ctx.stroke(l.path);
 }
 
 // رسم اصلی فریم (فقط اشیای داخل دید رسم می‌شوند)
@@ -331,7 +379,7 @@ function draw() {
 
     for (let i = 0; i < lakes.length; i++) {
         let l = lakes[i];
-        if (l.x >= x0 && l.x <= x1 && l.y >= y0 && l.y <= y1) drawLake(l);
+        if (l.x + l.ext >= x0 && l.x - l.ext <= x1 && l.y + l.ext >= y0 && l.y - l.ext <= y1) drawLake(l);
     }
     for (let i = 0; i < bushBlocks.length; i++) {
         let b = bushBlocks[i];
