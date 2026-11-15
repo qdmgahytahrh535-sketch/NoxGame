@@ -562,7 +562,7 @@ const coordDisplay = document.getElementById('coord-display');
 function selectBlock(tx, ty) {
     selectedBlock = { x: tx, y: ty };
     let lvl = getElevationLevel(tx, ty);
-    coordDisplay.innerHTML = `X: ${tx} | Y: ${ty} <br><span style="color: #d4c2a0; font-weight: bold;">سطح ${lvl}</span>`;
+    coordDisplay.innerHTML = `سطح ${lvl} <br><span style="font-size: 12px; color: #bcab88;">X: ${tx} | Y: ${ty}</span>`;
     coordDisplay.classList.remove('modal-hidden');
     requestRender();
 }
