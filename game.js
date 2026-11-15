@@ -347,27 +347,136 @@ function drawPalace() {
     });
 }
 
-function drawMountain(m) {
-    let x = m.x * tileSize;
-    let y = m.y * tileSize;
-    let cx = x + tileSize / 2;
+// عدد تصادفی ثابت برای هر مربع (بدون دست زدن به seed دنیا)
+function hash01(x, y, salt) {
+    let h = Math.imul(x + 1, 374761393) ^ Math.imul(y + 1, 668265263) ^ Math.imul(salt + 1, 2147483647);
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
+}
 
-    ctx.fillStyle = '#d4c2a0';
+// نقاط میانی ناهموار روی یک شیب (ثابت برای هر قله)
+function roughSlope(a, b, w, sd, k) {
+    let pts = [];
+    [0.35, 0.7].forEach((t, i) => {
+        let r = Math.sin(sd * 12.9898 + (k + i) * 78.233) * 43758.5453;
+        let off = (r - Math.floor(r) - 0.5) * 0.14;
+        pts.push({ x: a.x + (b.x - a.x) * t + off * w, y: a.y + (b.y - a.y) * t });
+    });
+    return pts;
+}
+
+// یک قله با دو وجه: سمت روشن (چپ) و سمت سایه (راست)
+function drawPeak(cx, baseY, w, h, ps, sd) {
+    let L = { x: cx - w / 2, y: baseY };
+    let R = { x: cx + w / 2, y: baseY };
+    let P = { x: cx + ps * w, y: baseY - h };
+    let lp = roughSlope(L, P, w, sd, 1);
+    let rp = roughSlope(P, R, w, sd, 5);
+    let rm = { x: P.x + w * 0.02, y: baseY - h * 0.45 };
+    let rb = { x: P.x + w * 0.07, y: baseY };
+
+    // وجه روشن
+    ctx.fillStyle = '#dccbaa';
     ctx.beginPath();
-    ctx.moveTo(x, y + tileSize * 0.8);
-    ctx.lineTo(cx, y + tileSize * 0.1);
-    ctx.lineTo(x + tileSize, y + tileSize * 0.8);
+    ctx.moveTo(L.x, L.y);
+    ctx.lineTo(lp[0].x, lp[0].y);
+    ctx.lineTo(lp[1].x, lp[1].y);
+    ctx.lineTo(P.x, P.y);
+    ctx.lineTo(rm.x, rm.y);
+    ctx.lineTo(rb.x, rb.y);
     ctx.closePath();
     ctx.fill();
+
+    // وجه سایه
+    ctx.fillStyle = '#a99879';
+    ctx.beginPath();
+    ctx.moveTo(P.x, P.y);
+    ctx.lineTo(rp[0].x, rp[0].y);
+    ctx.lineTo(rp[1].x, rp[1].y);
+    ctx.lineTo(R.x, R.y);
+    ctx.lineTo(rb.x, rb.y);
+    ctx.lineTo(rm.x, rm.y);
+    ctx.closePath();
+    ctx.fill();
+
+    // خط دور
+    ctx.strokeStyle = 'rgba(70, 58, 44, 0.4)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(L.x, L.y);
+    ctx.lineTo(lp[0].x, lp[0].y);
+    ctx.lineTo(lp[1].x, lp[1].y);
+    ctx.lineTo(P.x, P.y);
+    ctx.lineTo(rp[0].x, rp[0].y);
+    ctx.lineTo(rp[1].x, rp[1].y);
+    ctx.lineTo(R.x, R.y);
+    ctx.stroke();
+}
+
+function drawMountain(m) {
+    if (!m.shape) {
+        m.shape = {
+            dx: (hash01(m.x, m.y, 1) - 0.5) * tileSize * 0.1,
+            w: tileSize * (0.8 + hash01(m.x, m.y, 2) * 0.35),
+            h: tileSize * (0.65 + hash01(m.x, m.y, 3) * 0.4),
+            ps: (hash01(m.x, m.y, 4) - 0.5) * 0.3,
+            side: hash01(m.x, m.y, 5) > 0.4,
+            dir: hash01(m.x, m.y, 6) < 0.5 ? -1 : 1
+        };
+    }
+    let sh = m.shape;
+    let cx = m.x * tileSize + tileSize / 2 + sh.dx;
+    let baseY = m.y * tileSize + tileSize * 0.88;
+
+    // سایه روی زمین
+    ctx.fillStyle = 'rgba(40, 32, 22, 0.22)';
+    ctx.beginPath();
+    ctx.ellipse(cx + sh.w * 0.08, baseY + tileSize * 0.01, sh.w * 0.58, tileSize * 0.09, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // قله کوچک کناری (پشت قله اصلی)
+    if (sh.side) {
+        drawPeak(cx + sh.dir * sh.w * 0.3, baseY, sh.w * 0.62, sh.h * 0.62, -sh.ps, m.x * 7 + m.y * 13 + 5);
+    }
+    drawPeak(cx, baseY, sh.w, sh.h, sh.ps, m.x * 7 + m.y * 13);
 }
 
 function drawBush(b) {
-    let x = b.x * tileSize + tileSize / 2;
-    let y = b.y * tileSize + tileSize / 2;
-    ctx.fillStyle = '#425e3d';
+    if (!b.blobs) {
+        let n = 3 + Math.floor(hash01(b.x, b.y, 11) * 3);
+        let blobs = [];
+        for (let i = 0; i < n; i++) {
+            blobs.push({
+                ox: (hash01(b.x, b.y, 20 + i) - 0.5) * tileSize * 0.42,
+                oy: (hash01(b.x, b.y, 30 + i) - 0.5) * tileSize * 0.26,
+                r: tileSize * (0.12 + hash01(b.x, b.y, 40 + i) * 0.08)
+            });
+        }
+        blobs.sort((p, q) => p.oy - q.oy);
+        b.blobs = blobs;
+    }
+    let cx = b.x * tileSize + tileSize / 2;
+    let cy = b.y * tileSize + tileSize / 2 + tileSize * 0.05;
+
+    // سایه روی زمین
+    ctx.fillStyle = 'rgba(20, 28, 16, 0.25)';
     ctx.beginPath();
-    ctx.arc(x, y, tileSize * 0.3, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy + tileSize * 0.22, tileSize * 0.34, tileSize * 0.09, 0, 0, Math.PI * 2);
     ctx.fill();
+
+    for (let i = 0; i < b.blobs.length; i++) {
+        let o = b.blobs[i];
+        ctx.fillStyle = i % 2 === 0 ? '#3d5a38' : '#486a41';
+        ctx.beginPath();
+        ctx.arc(cx + o.ox, cy + o.oy, o.r, 0, Math.PI * 2);
+        ctx.fill();
+        // نور از بالا-چپ
+        ctx.fillStyle = 'rgba(120, 160, 100, 0.45)';
+        ctx.beginPath();
+        ctx.arc(cx + o.ox - o.r * 0.3, cy + o.oy - o.r * 0.3, o.r * 0.55, 0, Math.PI * 2);
+        ctx.fill();
+    }
 }
 
 function drawLake(l) {
@@ -604,6 +713,8 @@ submitBtn.addEventListener('click', () => {
 // شروع
 buildTerrain();
 generateWorld();
+mountainBlocks.sort((a, b) => a.y - b.y || a.x - b.x);
+bushBlocks.sort((a, b) => a.y - b.y || a.x - b.x);
 resizeCanvas();
 centerOn(centerX * tileSize, centerY * tileSize);
 loop();
