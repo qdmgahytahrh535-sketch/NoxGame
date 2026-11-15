@@ -200,7 +200,7 @@ function generateWorld() {
         lakes.push(l);
     }
 
-    let targetMountainCount = Math.floor(totalBlocks * 0.02);
+    let targetMountainCount = Math.floor(totalBlocks * 0.02 / 3);
     while (mountainBlocks.length < targetMountainCount) {
         let rx = Math.floor(rand() * mapWidth);
         let ry = Math.floor(rand() * mapHeight);
@@ -214,7 +214,7 @@ function generateWorld() {
         }
     }
 
-    let targetBushCount = Math.floor(totalBlocks * 0.02);
+    let targetBushCount = Math.floor(totalBlocks * 0.01);
     while (bushBlocks.length < targetBushCount) {
         let rx = Math.floor(rand() * mapWidth);
         let ry = Math.floor(rand() * mapHeight);
