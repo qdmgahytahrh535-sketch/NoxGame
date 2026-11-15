@@ -2,47 +2,12 @@
 <html lang="fa">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tribal Kingdom - Map</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NoxGame</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="game-container">
-        <canvas id="mapCanvas"></canvas>
-    </div>
-
-    <!-- دکمه جستجوی مختصات -->
-    <button id="search-btn">🔍</button>
-
-    <!-- کادر نمایش مختصات کلیک شده / سطح فعال -->
-    <div id="coord-display" class="modal-hidden"></div>
-
-    <!-- پنجره مودال جستجوی مختصات -->
-    <div id="coord-modal" class="modal-hidden">
-        <div class="modal-content">
-            <h3 id="modal-label">جستجوی مختصات</h3>
-            <div class="input-group">
-                <label for="input-x">محور X (0 تا 399):</label>
-                <input type="text" inputmode="numeric" id="input-x" placeholder="مثال: 200">
-            </div>
-            <div class="input-group">
-                <label for="input-y">محور Y (0 تا 249):</label>
-                <input type="text" inputmode="numeric" id="input-y" placeholder="مثال: 125">
-            </div>
-            <div class="modal-buttons">
-                <button id="btn-cancel">لغو</button>
-                <button id="btn-submit">برو به مختصات</button>
-            </div>
-        </div>
-    </div>
-
-    
-    <!-- نقشه کوچک و دکمه مرز سطوح -->
-    <div id="minimap-container">
-        <button id="level-toggle-btn" title="نمایش/مخفی‌سازی مرز سطوح">🌐</button>
-        <canvas id="minimapCanvas" width="160" height="100"></canvas>
-    </div>
-
-    <script src="game.js"></script>
+    <canvas id="canvas"></canvas>
+    <script src="game.js" defer></script>
 </body>
 </html>
