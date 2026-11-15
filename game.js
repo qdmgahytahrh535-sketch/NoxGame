@@ -418,8 +418,8 @@ function drawMountain(m) {
     if (!m.shape) {
         m.shape = {
             dx: (hash01(m.x, m.y, 1) - 0.5) * tileSize * 0.1,
-            w: tileSize * (0.8 + hash01(m.x, m.y, 2) * 0.35),
-            h: tileSize * (0.65 + hash01(m.x, m.y, 3) * 0.4),
+            w: tileSize * (0.8 + hash01(m.x, m.y, 2) * 0.35) * 4,
+            h: tileSize * (0.65 + hash01(m.x, m.y, 3) * 0.4) * 4,
             ps: (hash01(m.x, m.y, 4) - 0.5) * 0.3,
             side: hash01(m.x, m.y, 5) > 0.4,
             dir: hash01(m.x, m.y, 6) < 0.5 ? -1 : 1
