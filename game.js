@@ -575,32 +575,53 @@ function drawMinimap() {
     const mh = minimapCanvas.height;
     mctx.clearRect(0, 0, mw, mh);
 
-    // رسم پس‌زمینه زمین از روی terrainCanvas
-    mctx.drawImage(terrainCanvas, 0, 0, mw, mh);
-
     if (showLevelBorders) {
-        // رسم دایره‌های هم‌مرکز مرز سطوح ۱ تا ۶
-        const cx = mw / 2;
-        const cy = mh / 2;
-        const maxR = Math.hypot(cx, cy);
-        const ratios = [0.005, 0.164, 0.331, 0.520, 0.731];
-        const colors = ["#ff595e", "#ffca3a", "#8ac926", "#1982c4", "#6a4c93"];
+        // رسم بلوک‌های مربعی رنگی برای هر سطح به صورت تقارن مرکزی از روی تابع getElevationLevel
+        const stepX = Math.max(1, Math.floor(mapWidth / 25));
+        const stepY = Math.max(1, Math.floor(mapHeight / 25));
+        
+        const levelColors = {
+            1: "#ffffff", // سطح 1: سفید
+            2: "#fefae0", // سطح 2: کرمی
+            3: "#ffb703", // سطح 3: زرد
+            4: "#386641", // سطح 4: سبز
+            5: "#132a13", // سطح 5: سبز تیره
+            6: "#4b5244"  // سطح 6: مردابی
+        };
 
-        ratios.forEach((rSq, idx) => {
-            mctx.beginPath();
-            mctx.ellipse(cx, cy, Math.sqrt(rSq) * (mw / 2), Math.sqrt(rSq) * (mh / 2), 0, 0, Math.PI * 2);
-            mctx.strokeStyle = colors[idx];
-            mctx.lineWidth = 1.5;
-            mctx.stroke();
-        });
+        for (let x = 0; x < mapWidth; x += stepX) {
+            for (let y = 0; y < mapHeight; y += stepY) {
+                let lvl = getElevationLevel(x, y);
+                mctx.fillStyle = levelColors[lvl] || "#3b302a";
+                let px = (x / mapWidth) * mw;
+                let py = (y / mapHeight) * mh;
+                let pw = (stepX / mapWidth) * mw + 0.5;
+                let ph = (stepY / mapHeight) * mh + 0.5;
+                mctx.fillRect(px, py, pw, ph);
+            }
+        }
+
+        // نوشتن شماره سطوح روی مینی‌مپ
+        mctx.font = "bold 9px sans-serif";
+        mctx.fillStyle = "#000000";
+        mctx.textAlign = "center";
+        mctx.textBaseline = "middle";
+        mctx.fillText("6", mw / 2, mh / 2);
+        mctx.fillText("1", mw * 0.15, mh * 0.15);
+        mctx.fillText("2", mw * 0.3, mh * 0.3);
+        mctx.fillText("3", mw * 0.45, mh * 0.45);
+        mctx.fillText("4", mw * 0.6, mh * 0.6);
+        mctx.fillText("5", mw * 0.75, mh * 0.75);
+
     } else {
-        // نمایش دریاچه‌ها در حالت معمولی
+        // رسم پس‌زمینه زمین و دریاچه‌ها در حالت معمولی
+        mctx.drawImage(terrainCanvas, 0, 0, mw, mh);
         mctx.fillStyle = "rgba(130, 185, 215, 0.8)";
         for (let i = 0; i < lakes.length; i++) {
             let lx = (lakes[i].x / (mapWidth * tileSize)) * mw;
             let ly = (lakes[i].y / (mapHeight * tileSize)) * mh;
             mctx.beginPath();
-            mctx.arc(lx, ly, 2, 0, Math.PI * 2);
+            mctx.arc(lx, ly, 1.5, 0, Math.PI * 2);
             mctx.fill();
         }
     }
@@ -611,10 +632,10 @@ function drawMinimap() {
     const viewX = (cameraX / (mapWidth * tileSize)) * mw;
     const viewY = (cameraY / (mapHeight * tileSize)) * mh;
 
-    mctx.strokeStyle = "#ffffff";
+    mctx.strokeStyle = "#ff0054";
     mctx.lineWidth = 1.5;
     mctx.strokeRect(viewX, viewY, viewW, viewH);
-    mctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+    mctx.fillStyle = "rgba(255, 0, 84, 0.15)";
     mctx.fillRect(viewX, viewY, viewW, viewH);
 }
 
