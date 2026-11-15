@@ -113,7 +113,10 @@ function generateWorld() {
                 x: lx * tileSize,
                 y: ly * tileSize,
                 type: shapeTypes[Math.floor(Math.random() * shapeTypes.length)],
-                scale: 0.8 + Math.random() * 0.5
+                scale: 0.8 + Math.random() * 0.5,
+                rot: (Math.random() - 0.5) * 0.8,
+                flip: Math.random() < 0.5 ? 1 : -1,
+                seed: Math.random() * 10
             });
         }
     }
@@ -244,10 +247,67 @@ function drawBush(b) {
 }
 
 function drawLake(l) {
+    let r = tileSize * 0.8 * l.scale;
+    ctx.save();
+    ctx.translate(l.x, l.y);
+    ctx.rotate(l.rot);
+    ctx.scale(l.flip * r, r);
     ctx.fillStyle = '#dceaf0';
-    ctx.beginPath();
-    ctx.arc(l.x, l.y, tileSize * 0.8 * l.scale, 0, Math.PI * 2);
-    ctx.fill();
+
+    if (l.type === 'cat') {
+        // سر گربه: صورت گرد + دو گوش
+        ctx.beginPath();
+        ctx.ellipse(0, 0.1, 1, 0.85, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(-0.95, -0.3);
+        ctx.lineTo(-0.8, -1.2);
+        ctx.lineTo(-0.2, -0.7);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(0.95, -0.3);
+        ctx.lineTo(0.8, -1.2);
+        ctx.lineTo(0.2, -0.7);
+        ctx.closePath();
+        ctx.fill();
+    } else if (l.type === 'fox_tail') {
+        // دم پرپشت روباه: خمیده با نوک تیز
+        ctx.beginPath();
+        ctx.moveTo(-1.0, 0.75);
+        ctx.bezierCurveTo(-0.3, 1.0, 0.9, 0.8, 1.0, -0.1);
+        ctx.bezierCurveTo(1.05, -0.65, 0.5, -1.05, -0.2, -1.1);
+        ctx.bezierCurveTo(0.4, -0.7, 0.55, -0.3, 0.2, 0.05);
+        ctx.bezierCurveTo(-0.2, 0.4, -0.7, 0.45, -1.0, 0.75);
+        ctx.closePath();
+        ctx.fill();
+    } else if (l.type === 'simple_fish') {
+        // ماهی ساده: بدنه بیضی + دم مثلثی
+        ctx.beginPath();
+        ctx.ellipse(-0.2, 0, 0.9, 0.52, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(0.5, 0);
+        ctx.lineTo(1.2, -0.55);
+        ctx.lineTo(1.2, 0.55);
+        ctx.closePath();
+        ctx.fill();
+    } else {
+        // لکه: دایره نامنظم
+        ctx.beginPath();
+        let n = 28;
+        for (let i = 0; i <= n; i++) {
+            let a = (i / n) * Math.PI * 2;
+            let rad = 1 + 0.18 * Math.sin(3 * a + l.seed) + 0.1 * Math.sin(5 * a + l.seed * 2);
+            let px = Math.cos(a) * rad;
+            let py = Math.sin(a) * rad;
+            if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    ctx.restore();
 }
 
 // رسم اصلی فریم (فقط اشیای داخل دید رسم می‌شوند)
