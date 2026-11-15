@@ -1,0 +1,146 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #e6d5b8;
+    direction: rtl;
+    font-family: sans-serif;
+}
+
+#game-container {
+    width: 100%;
+    height: 100%;
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+/* کلاس برای پنهان کردن المان‌ها با بالاترین اولویت */
+.modal-hidden {
+    display: none !important;
+}
+
+/* دکمه ذره‌بین جستجوی مختصات */
+#search-btn {
+    position: fixed !important;
+    top: 15px !important;
+    right: 15px !important;
+    z-index: 9999 !important;
+    background: #3b302a !important;
+    color: #fefae0 !important;
+    border: 2px solid #bcab88 !important;
+    border-radius: 50% !important;
+    width: 48px !important;
+    height: 48px !important;
+    font-size: 20px !important;
+    cursor: pointer !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* کادر نمایش مختصات و سطح فعال روی صفحه */
+#coord-display {
+    position: absolute;
+    top: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(43, 35, 29, 0.9);
+    color: #fefae0;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid #bcab88;
+    font-family: monospace;
+    font-size: 15px;
+    text-align: center;
+    z-index: 10;
+    pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+/* پنجره مودال جستجوی مختصات */
+#coord-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+
+.modal-content {
+    background: #3b302a;
+    border: 2px solid #bcab88;
+    padding: 20px;
+    border-radius: 12px;
+    width: 85%;
+    max-width: 320px;
+    color: #fefae0;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    text-align: right;
+}
+
+.modal-content h3 {
+    margin-top: 0;
+    text-align: center;
+    color: #fefae0;
+    font-size: 18px;
+}
+
+.input-group {
+    margin-bottom: 15px;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 14px;
+    color: #fefae0;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 10px;
+    box-sizing: border-box;
+    background: #2b231d;
+    border: 1px solid #bcab88;
+    color: #fefae0;
+    border-radius: 6px;
+    font-size: 16px;
+    text-align: center;
+}
+
+.modal-buttons {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.modal-buttons button {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+#btn-cancel {
+    background: #5c5240;
+    color: #fefae0;
+}
+
+#btn-submit {
+    background: #386641;
+    color: #fefae0;
+}
