@@ -207,7 +207,10 @@ function generateWorld() {
         let lvl = getElevationLevel(rx, ry);
         if (lvl !== 6) {
             let key = `${rx},${ry}`;
-            if (!occupiedSet.has(key)) {
+            let wx = (rx + 0.5) * tileSize;
+            let wy = (ry + 0.5) * tileSize;
+            let inAnyLake = lakes.some(l => insideLake(l, wx, wy, tileSize * 0.5));
+            if (!inAnyLake && !occupiedSet.has(key)) {
                 occupiedSet.add(key);
                 mountainBlocks.push({ x: rx, y: ry });
             }
