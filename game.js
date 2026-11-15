@@ -23,6 +23,21 @@ let bushBlocks = [];
 let lakes = [];
 let selectedBlock = null;
 
+// تولید دنیای ثابت: با هر بار باز کردن، نقشه یکسان است.
+// برای دنیای دیگر آخر آدرس بنویس: ?seed=123
+function mulberry32(a) {
+    return function () {
+        a |= 0;
+        a = (a + 0x6D2B79F5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+const seedParam = parseInt(new URLSearchParams(window.location.search).get('seed'), 10);
+const WORLD_SEED = Number.isNaN(seedParam) ? 20260101 : seedParam;
+let rand = mulberry32(WORLD_SEED);
+
 function requestRender() {
     needsRender = true;
 }
@@ -116,22 +131,22 @@ function buildLakePath(l) {
 }
 
 function createLakeCandidate() {
-    let tx = 3 + Math.floor(Math.random() * (mapWidth - 6));
-    let ty = 3 + Math.floor(Math.random() * (mapHeight - 6));
-    let rot = Math.random() * Math.PI;
+    let tx = 3 + Math.floor(rand() * (mapWidth - 6));
+    let ty = 3 + Math.floor(rand() * (mapHeight - 6));
+    let rot = rand() * Math.PI;
     let l = {
         x: (tx + 0.5) * tileSize,
         y: (ty + 0.5) * tileSize,
-        R: tileSize * (1.0 + Math.random() * 1.6),
-        aspect: 1 + Math.random() * 0.8,
+        R: tileSize * (1.0 + rand() * 1.6),
+        aspect: 1 + rand() * 0.8,
         rot: rot,
         cosR: Math.cos(rot),
         sinR: Math.sin(rot),
         harm: [
-            { k: 2, a: 0.10 + Math.random() * 0.15, p: Math.random() * Math.PI * 2 },
-            { k: 3, a: 0.06 + Math.random() * 0.12, p: Math.random() * Math.PI * 2 },
-            { k: 4, a: 0.04 + Math.random() * 0.06, p: Math.random() * Math.PI * 2 },
-            { k: 5, a: 0.02 + Math.random() * 0.05, p: Math.random() * Math.PI * 2 }
+            { k: 2, a: 0.10 + rand() * 0.15, p: rand() * Math.PI * 2 },
+            { k: 3, a: 0.06 + rand() * 0.12, p: rand() * Math.PI * 2 },
+            { k: 4, a: 0.04 + rand() * 0.06, p: rand() * Math.PI * 2 },
+            { k: 5, a: 0.02 + rand() * 0.05, p: rand() * Math.PI * 2 }
         ]
     };
     l.ext = l.R * l.aspect * 1.6 + 5;
@@ -187,8 +202,8 @@ function generateWorld() {
 
     let targetMountainCount = Math.floor(totalBlocks * 0.02);
     while (mountainBlocks.length < targetMountainCount) {
-        let rx = Math.floor(Math.random() * mapWidth);
-        let ry = Math.floor(Math.random() * mapHeight);
+        let rx = Math.floor(rand() * mapWidth);
+        let ry = Math.floor(rand() * mapHeight);
         let lvl = getElevationLevel(rx, ry);
         if (lvl !== 6) {
             let key = `${rx},${ry}`;
@@ -201,8 +216,8 @@ function generateWorld() {
 
     let targetBushCount = Math.floor(totalBlocks * 0.02);
     while (bushBlocks.length < targetBushCount) {
-        let rx = Math.floor(Math.random() * mapWidth);
-        let ry = Math.floor(Math.random() * mapHeight);
+        let rx = Math.floor(rand() * mapWidth);
+        let ry = Math.floor(rand() * mapHeight);
         let lvl = getElevationLevel(rx, ry);
         if (lvl < 6) {
             let key = `${rx},${ry}`;
@@ -230,6 +245,20 @@ function getElevationLevel(x, y) {
 const TERRAIN_STEP = 2;
 const terrainCanvas = document.createElement('canvas');
 
+const TERRAIN_INNER = { r: 92, g: 82, b: 64 };
+const TERRAIN_OUTER = { r: 230, g: 213, b: 184 };
+
+function terrainRGB(tx, ty) {
+    let dx = tx - centerX;
+    let dy = ty - centerY;
+    let factor = Math.min(((dx * dx) + (dy * dy)) / maxDistSq, 1);
+    return [
+        Math.floor(TERRAIN_INNER.r * (1 - factor) + TERRAIN_OUTER.r * factor),
+        Math.floor(TERRAIN_INNER.g * (1 - factor) + TERRAIN_OUTER.g * factor),
+        Math.floor(TERRAIN_INNER.b * (1 - factor) + TERRAIN_OUTER.b * factor)
+    ];
+}
+
 function buildTerrain() {
     let tw = Math.ceil(mapWidth / TERRAIN_STEP);
     let th = Math.ceil(mapHeight / TERRAIN_STEP);
@@ -238,22 +267,25 @@ function buildTerrain() {
     let tctx = terrainCanvas.getContext('2d');
     let img = tctx.createImageData(tw, th);
 
-    let outerColor = { r: 230, g: 213, b: 184 };
-    let innerColor = { r: 92, g: 82, b: 64 };
-
     for (let i = 0; i < tw; i++) {
         for (let j = 0; j < th; j++) {
-            let dx = i * TERRAIN_STEP - centerX;
-            let dy = j * TERRAIN_STEP - centerY;
-            let factor = Math.min(((dx * dx) + (dy * dy)) / maxDistSq, 1);
+            let c = terrainRGB(i * TERRAIN_STEP, j * TERRAIN_STEP);
             let idx = (j * tw + i) * 4;
-            img.data[idx] = Math.floor(innerColor.r * (1 - factor) + outerColor.r * factor);
-            img.data[idx + 1] = Math.floor(innerColor.g * (1 - factor) + outerColor.g * factor);
-            img.data[idx + 2] = Math.floor(innerColor.b * (1 - factor) + outerColor.b * factor);
+            img.data[idx] = c[0];
+            img.data[idx + 1] = c[1];
+            img.data[idx + 2] = c[2];
             img.data[idx + 3] = 255;
         }
     }
     tctx.putImageData(img, 0, 0);
+}
+
+// رنگ پس‌زمینه‌ی صفحه را با رنگ زمین لبه‌ی پایین هماهنگ می‌کند
+function updatePageBackground(viewW, viewH) {
+    let tx = Math.min(Math.max((cameraX + viewW / 2) / tileSize, 0), mapWidth);
+    let ty = Math.min(Math.max((cameraY + viewH) / tileSize, 0), mapHeight);
+    let c = terrainRGB(tx, ty);
+    document.documentElement.style.backgroundColor = `rgb(${c[0]},${c[1]},${c[2]})`;
 }
 
 function drawTerrain(viewW, viewH) {
@@ -369,6 +401,7 @@ function draw() {
     let viewW = window.innerWidth / zoom;
     let viewH = window.innerHeight / zoom;
 
+    updatePageBackground(viewW, viewH);
     drawTerrain(viewW, viewH);
 
     let margin = tileSize * 3;
