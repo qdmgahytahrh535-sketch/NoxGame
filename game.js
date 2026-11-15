@@ -95,7 +95,7 @@ function lakeRad(l, theta) {
 }
 
 // آیا نقطه (در مختصات دنیا) داخل دریاچه است؟ (pad = فاصله ایمنی)
-function insideLake(l, wx, wy, pad) {
+function insideLake(l, wx, wy, tileSize * 3.0) {
     let dx = wx - l.x;
     let dy = wy - l.y;
     let lx = (dx * l.cosR + dy * l.sinR) / l.aspect;
@@ -169,7 +169,7 @@ function lakeTileKeys(l) {
                 for (let j = 0; j <= 2 && !blocked; j++) {
                     let px = (tx + i / 2) * tileSize;
                     let py = (ty + j / 2) * tileSize;
-                    if (insideLake(l, px, py, pad)) blocked = true;
+                    if (insideLake(l, wx, wy, tileSize * 3.0)) blocked = true;
                 }
             }
             if (!blocked) continue;
@@ -209,7 +209,7 @@ function generateWorld() {
             let key = `${rx},${ry}`;
             let wx = (rx + 0.5) * tileSize;
             let wy = (ry + 0.5) * tileSize;
-            let inAnyLake = lakes.some(l => insideLake(l, wx, wy, tileSize * 0.5));
+            let inAnyLake = lakes.some(l => insideLake(l, wx, wy, tileSize * 3.0));
             if (!inAnyLake && !occupiedSet.has(key)) {
                 occupiedSet.add(key);
                 mountainBlocks.push({ x: rx, y: ry });
@@ -576,17 +576,16 @@ function drawMinimap() {
     mctx.clearRect(0, 0, mw, mh);
 
     if (showLevelBorders) {
-        // رسم بلوک‌های مربعی رنگی برای هر سطح به صورت تقارن مرکزی از روی تابع getElevationLevel
         const stepX = Math.max(1, Math.floor(mapWidth / 25));
         const stepY = Math.max(1, Math.floor(mapHeight / 25));
         
         const levelColors = {
-            1: "#ffffff", // سطح 1: سفید
-            2: "#fefae0", // سطح 2: کرمی
-            3: "#ffb703", // سطح 3: زرد
-            4: "#386641", // سطح 4: سبز
-            5: "#132a13", // سطح 5: سبز تیره
-            6: "#4b5244"  // سطح 6: مردابی
+            1: "#ffffff",
+            2: "#fefae0",
+            3: "#ffb703",
+            4: "#386641",
+            5: "#132a13",
+            6: "#4b5244"
         };
 
         for (let x = 0; x < mapWidth; x += stepX) {
@@ -601,7 +600,6 @@ function drawMinimap() {
             }
         }
 
-        // نوشتن شماره سطوح روی مینی‌مپ
         mctx.font = "bold 9px sans-serif";
         mctx.fillStyle = "#000000";
         mctx.textAlign = "center";
@@ -614,7 +612,6 @@ function drawMinimap() {
         mctx.fillText("5", mw * 0.75, mh * 0.75);
 
     } else {
-        // رسم پس‌زمینه زمین و دریاچه‌ها در حالت معمولی
         mctx.drawImage(terrainCanvas, 0, 0, mw, mh);
         mctx.fillStyle = "rgba(130, 185, 215, 0.8)";
         for (let i = 0; i < lakes.length; i++) {
@@ -626,7 +623,6 @@ function drawMinimap() {
         }
     }
 
-    // رسم کادر دید لحظه‌ای دوربین (Viewport)
     const viewW = (window.innerWidth / zoom) / (mapWidth * tileSize) * mw;
     const viewH = (window.innerHeight / zoom) / (mapHeight * tileSize) * mh;
     const viewX = (cameraX / (mapWidth * tileSize)) * mw;
