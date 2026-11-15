@@ -1,13 +1,18 @@
 const canvas = document.getElementById('mapCanvas');
 const ctx = canvas.getContext('2d');
+canvas.style.touchAction = 'none';
 
 let mapWidth = 400;
 let mapHeight = 250;
 let tileSize = 50;
 
-let cameraX = (mapWidth * tileSize) / 2 - window.innerWidth / 2;
-let cameraY = (mapHeight * tileSize) / 2 - window.innerHeight / 2;
 let zoom = 0.8;
+const MIN_ZOOM = 0.15;
+const MAX_ZOOM = 2;
+let dpr = 1;
+let cameraX = 0;
+let cameraY = 0;
+let needsRender = true;
 
 let centerX = mapWidth / 2;
 let centerY = mapHeight / 2;
@@ -18,12 +23,51 @@ let bushBlocks = [];
 let lakes = [];
 let selectedBlock = null;
 
+function requestRender() {
+    needsRender = true;
+}
+
+// محدود کردن دوربین به داخل نقشه
+function clampCamera() {
+    let viewW = window.innerWidth / zoom;
+    let viewH = window.innerHeight / zoom;
+    let mapPxW = mapWidth * tileSize;
+    let mapPxH = mapHeight * tileSize;
+    cameraX = viewW >= mapPxW ? (mapPxW - viewW) / 2 : Math.min(Math.max(cameraX, 0), mapPxW - viewW);
+    cameraY = viewH >= mapPxH ? (mapPxH - viewH) / 2 : Math.min(Math.max(cameraY, 0), mapPxH - viewH);
+}
+
+function centerOn(wx, wy) {
+    cameraX = wx - window.innerWidth / 2 / zoom;
+    cameraY = wy - window.innerHeight / 2 / zoom;
+    clampCamera();
+    requestRender();
+}
+
+function clampZoom(z) {
+    return Math.min(Math.max(z, MIN_ZOOM), MAX_ZOOM);
+}
+
+function zoomAt(sx, sy, newZoom) {
+    let wx = cameraX + sx / zoom;
+    let wy = cameraY + sy / zoom;
+    zoom = clampZoom(newZoom);
+    cameraX = wx - sx / zoom;
+    cameraY = wy - sy / zoom;
+    clampCamera();
+    requestRender();
+}
+
 function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.floor(window.innerWidth * dpr);
+    canvas.height = Math.floor(window.innerHeight * dpr);
+    canvas.style.width = window.innerWidth + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+    clampCamera();
+    requestRender();
 }
 window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
 
 // تولید عوارض زمین
 function generateWorld() {
@@ -87,6 +131,51 @@ function getElevationLevel(x, y) {
     return 1;
 }
 
+// زمین گرادینتی: فقط یک بار روی یک کَنوس کوچک ساخته می‌شود
+const TERRAIN_STEP = 2;
+const terrainCanvas = document.createElement('canvas');
+
+function buildTerrain() {
+    let tw = Math.ceil(mapWidth / TERRAIN_STEP);
+    let th = Math.ceil(mapHeight / TERRAIN_STEP);
+    terrainCanvas.width = tw;
+    terrainCanvas.height = th;
+    let tctx = terrainCanvas.getContext('2d');
+    let img = tctx.createImageData(tw, th);
+
+    let outerColor = { r: 230, g: 213, b: 184 };
+    let innerColor = { r: 92, g: 82, b: 64 };
+
+    for (let i = 0; i < tw; i++) {
+        for (let j = 0; j < th; j++) {
+            let dx = i * TERRAIN_STEP - centerX;
+            let dy = j * TERRAIN_STEP - centerY;
+            let factor = Math.min(((dx * dx) + (dy * dy)) / maxDistSq, 1);
+            let idx = (j * tw + i) * 4;
+            img.data[idx] = Math.floor(innerColor.r * (1 - factor) + outerColor.r * factor);
+            img.data[idx + 1] = Math.floor(innerColor.g * (1 - factor) + outerColor.g * factor);
+            img.data[idx + 2] = Math.floor(innerColor.b * (1 - factor) + outerColor.b * factor);
+            img.data[idx + 3] = 255;
+        }
+    }
+    tctx.putImageData(img, 0, 0);
+}
+
+function drawTerrain(viewW, viewH) {
+    let bs = tileSize * TERRAIN_STEP;
+    let sx0 = Math.max(0, Math.floor(cameraX / bs));
+    let sy0 = Math.max(0, Math.floor(cameraY / bs));
+    let sx1 = Math.min(terrainCanvas.width, Math.ceil((cameraX + viewW) / bs));
+    let sy1 = Math.min(terrainCanvas.height, Math.ceil((cameraY + viewH) / bs));
+    if (sx1 <= sx0 || sy1 <= sy0) return;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(
+        terrainCanvas,
+        sx0, sy0, sx1 - sx0, sy1 - sy0,
+        sx0 * bs, sy0 * bs, (sx1 - sx0) * bs, (sy1 - sy0) * bs
+    );
+}
+
 // رسم قلعه مرکزی
 function drawPalace() {
     let px = 200 * tileSize;
@@ -135,7 +224,6 @@ function drawMountain(m) {
     let x = m.x * tileSize;
     let y = m.y * tileSize;
     let cx = x + tileSize / 2;
-    let cy = y + tileSize / 2;
 
     ctx.fillStyle = '#d4c2a0';
     ctx.beginPath();
@@ -162,38 +250,40 @@ function drawLake(l) {
     ctx.fill();
 }
 
-// رسم اصلی فریم
-function render() {
+// رسم اصلی فریم (فقط اشیای داخل دید رسم می‌شوند)
+function draw() {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    ctx.save();
-    ctx.scale(zoom, zoom);
+    ctx.scale(dpr * zoom, dpr * zoom);
     ctx.translate(-cameraX, -cameraY);
 
-    let outerColor = { r: 230, g: 213, b: 184 };
-    let innerColor = { r: 92, g: 82, b: 64 };
+    let viewW = window.innerWidth / zoom;
+    let viewH = window.innerHeight / zoom;
 
-    // رسم گرادینت زمین
-    let step = 2; // بهینه‌سازی سرعت
-    for (let gx = 0; gx < mapWidth; gx += step) {
-        for (let gy = 0; gy < mapHeight; gy += step) {
-            let dx = gx - centerX;
-            let dy = gy - centerY;
-            let distSq = (dx * dx) + (dy * dy);
-            let factor = Math.min(distSq / maxDistSq, 1);
+    drawTerrain(viewW, viewH);
 
-            let r = Math.floor(innerColor.r * (1 - factor) + outerColor.r * factor);
-            let g = Math.floor(innerColor.g * (1 - factor) + outerColor.g * factor);
-            let b = Math.floor(innerColor.b * (1 - factor) + outerColor.b * factor);
+    let margin = tileSize * 3;
+    let x0 = cameraX - margin;
+    let y0 = cameraY - margin;
+    let x1 = cameraX + viewW + margin;
+    let y1 = cameraY + viewH + margin;
 
-            ctx.fillStyle = `rgb(${r},${g},${b})`;
-            ctx.fillRect(gx * tileSize, gy * tileSize, tileSize * step, tileSize * step);
-        }
+    for (let i = 0; i < lakes.length; i++) {
+        let l = lakes[i];
+        if (l.x >= x0 && l.x <= x1 && l.y >= y0 && l.y <= y1) drawLake(l);
+    }
+    for (let i = 0; i < bushBlocks.length; i++) {
+        let b = bushBlocks[i];
+        let bx = b.x * tileSize, by = b.y * tileSize;
+        if (bx >= x0 && bx <= x1 && by >= y0 && by <= y1) drawBush(b);
+    }
+    for (let i = 0; i < mountainBlocks.length; i++) {
+        let m = mountainBlocks[i];
+        let mx = m.x * tileSize, my = m.y * tileSize;
+        if (mx >= x0 && mx <= x1 && my >= y0 && my <= y1) drawMountain(m);
     }
 
-    lakes.forEach(drawLake);
-    bushBlocks.forEach(drawBush);
-    mountainBlocks.forEach(drawMountain);
     drawPalace();
 
     if (selectedBlock) {
@@ -203,37 +293,118 @@ function render() {
         ctx.lineWidth = 2;
         ctx.strokeRect(selectedBlock.x * tileSize, selectedBlock.y * tileSize, tileSize, tileSize);
     }
-
-    ctx.restore();
-    requestAnimationFrame(render);
 }
 
-// مدیریت لمس و جابجایی (Pan & Zoom)
-let isDragging = false;
-let startX = 0, startY = 0;
-
-canvas.addEventListener('touchstart', (e) => {
-    if (e.touches.length === 1) {
-        isDragging = true;
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
+function loop() {
+    if (needsRender) {
+        needsRender = false;
+        draw();
     }
-}, { passive: true });
+    requestAnimationFrame(loop);
+}
 
-canvas.addEventListener('touchmove', (e) => {
-    if (isDragging && e.touches.length === 1) {
-        let dx = e.touches[0].clientX - startX;
-        let dy = e.touches[0].clientY - startY;
-        cameraX -= dx / zoom;
-        cameraY -= dy / zoom;
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
+// کادر مختصات و انتخاب مربع
+const coordDisplay = document.getElementById('coord-display');
+
+function selectBlock(tx, ty) {
+    selectedBlock = { x: tx, y: ty };
+    let lvl = getElevationLevel(tx, ty);
+    coordDisplay.innerHTML = `X: ${tx} | Y: ${ty} <br><span style="color: #d4c2a0; font-weight: bold;">سطح ${lvl}</span>`;
+    coordDisplay.classList.remove('modal-hidden');
+    requestRender();
+}
+
+function clearSelection() {
+    selectedBlock = null;
+    coordDisplay.classList.add('modal-hidden');
+    requestRender();
+}
+
+function handleTap(sx, sy) {
+    let tx = Math.floor((cameraX + sx / zoom) / tileSize);
+    let ty = Math.floor((cameraY + sy / zoom) / tileSize);
+    if (tx < 0 || tx >= mapWidth || ty < 0 || ty >= mapHeight) return;
+    if (selectedBlock && selectedBlock.x === tx && selectedBlock.y === ty) {
+        clearSelection();
+    } else {
+        selectBlock(tx, ty);
     }
-}, { passive: true });
+}
 
-canvas.addEventListener('touchend', () => {
-    isDragging = false;
+// لمس و ماوس: جابجایی، زوم دو انگشتی، تپ برای انتخاب
+const pointers = new Map();
+let tapMoved = false;
+let tapStart = { x: 0, y: 0 };
+let lastPinchDist = 1;
+let lastMid = { x: 0, y: 0 };
+
+function pinchInfo() {
+    let pts = Array.from(pointers.values());
+    let a = pts[0], b = pts[1];
+    return {
+        dist: Math.hypot(a.x - b.x, a.y - b.y) || 1,
+        mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+    };
+}
+
+canvas.addEventListener('pointerdown', (e) => {
+    canvas.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 1) {
+        tapMoved = false;
+        tapStart = { x: e.clientX, y: e.clientY };
+    } else if (pointers.size === 2) {
+        tapMoved = true;
+        let p = pinchInfo();
+        lastPinchDist = p.dist;
+        lastMid = p.mid;
+    }
 });
+
+canvas.addEventListener('pointermove', (e) => {
+    let prev = pointers.get(e.pointerId);
+    if (!prev) return;
+    let cur = { x: e.clientX, y: e.clientY };
+    pointers.set(e.pointerId, cur);
+
+    if (pointers.size === 1) {
+        if (!tapMoved && Math.hypot(cur.x - tapStart.x, cur.y - tapStart.y) > 8) tapMoved = true;
+        if (tapMoved) {
+            cameraX -= (cur.x - prev.x) / zoom;
+            cameraY -= (cur.y - prev.y) / zoom;
+        }
+    } else if (pointers.size === 2) {
+        let p = pinchInfo();
+        let wx = cameraX + lastMid.x / zoom;
+        let wy = cameraY + lastMid.y / zoom;
+        zoom = clampZoom(zoom * (p.dist / lastPinchDist));
+        cameraX = wx - p.mid.x / zoom;
+        cameraY = wy - p.mid.y / zoom;
+        lastPinchDist = p.dist;
+        lastMid = p.mid;
+    } else {
+        return;
+    }
+    clampCamera();
+    requestRender();
+});
+
+function endPointer(e) {
+    if (!pointers.has(e.pointerId)) return;
+    let wasSingle = pointers.size === 1;
+    pointers.delete(e.pointerId);
+    if (wasSingle && !tapMoved && e.type === 'pointerup') {
+        handleTap(e.clientX, e.clientY);
+    }
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+
+// زوم با چرخ ماوس (کامپیوتر)
+canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    zoomAt(e.clientX, e.clientY, zoom * Math.exp(-e.deltaY * 0.001));
+}, { passive: false });
 
 // کنترل‌های مودال جستجو
 const modal = document.getElementById('coord-modal');
@@ -242,11 +413,29 @@ const cancelBtn = document.getElementById('btn-cancel');
 const submitBtn = document.getElementById('btn-submit');
 const inputX = document.getElementById('input-x');
 const inputY = document.getElementById('input-y');
-const coordDisplay = document.getElementById('coord-display');
+
+// پیام خطا زیر فیلدها
+const errorEl = document.createElement('div');
+errorEl.style.cssText = 'color:#e07a5f;font-size:13px;text-align:center;min-height:16px;margin-top:8px;';
+document.querySelector('.modal-buttons').before(errorEl);
+
+// تبدیل ارقام فارسی و عربی به انگلیسی
+function normalizeDigits(str) {
+    return str
+        .replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x06F0))
+        .replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660))
+        .trim();
+}
+
+function parseCoord(value) {
+    let s = normalizeDigits(value);
+    return /^\d+$/.test(s) ? parseInt(s, 10) : NaN;
+}
 
 searchBtn.addEventListener('click', () => {
     inputX.value = '';
     inputY.value = '';
+    errorEl.textContent = '';
     searchBtn.classList.add('modal-hidden');
     modal.classList.remove('modal-hidden');
 });
@@ -257,21 +446,23 @@ cancelBtn.addEventListener('click', () => {
 });
 
 submitBtn.addEventListener('click', () => {
-    let tx = parseInt(inputX.value);
-    let ty = parseInt(inputY.value);
-    if (!isNaN(tx) && !isNaN(ty) && tx >= 0 && tx < mapWidth && ty >= 0 && ty < mapHeight) {
-        selectedBlock = { x: tx, y: ty };
-        cameraX = (tx * tileSize) - (window.innerWidth / 2 / zoom);
-        cameraY = (ty * tileSize) - (window.innerHeight / 2 / zoom);
-        
-        let lvl = getElevationLevel(tx, ty);
-        coordDisplay.innerHTML = `X: ${tx} | Y: ${ty} <br><span style="color: #d4c2a0; font-weight: bold;">سطح ${lvl}</span>`;
-        coordDisplay.classList.remove('modal-hidden');
-
-        modal.classList.add('modal-hidden');
-        searchBtn.classList.remove('modal-hidden');
+    let tx = parseCoord(inputX.value);
+    let ty = parseCoord(inputY.value);
+    if (isNaN(tx) || isNaN(ty) || tx >= mapWidth || ty >= mapHeight) {
+        errorEl.textContent = `مختصات نامعتبر است. X بین 0 تا ${mapWidth - 1} و Y بین 0 تا ${mapHeight - 1}`;
+        return;
     }
+    errorEl.textContent = '';
+    selectBlock(tx, ty);
+    centerOn((tx + 0.5) * tileSize, (ty + 0.5) * tileSize);
+
+    modal.classList.add('modal-hidden');
+    searchBtn.classList.remove('modal-hidden');
 });
 
+// شروع
+buildTerrain();
 generateWorld();
-render();
+resizeCanvas();
+centerOn(centerX * tileSize, centerY * tileSize);
+loop();
