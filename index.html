@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tribal Kingdom - Map</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- کانتینر اصلی بازی -->
+    <div id="game-container"></div>
+
+    <!-- دکمه جستجوی مختصات -->
+    <button id="search-btn">🔍</button>
+
+    <!-- کادر نمایش مختصات کلیک شده / سطح فعال -->
+    <div id="coord-display" class="modal-hidden"></div>
+
+    <!-- پنجره مودال جستجوی مختصات -->
+    <div id="coord-modal" class="modal-hidden">
+        <div class="modal-content">
+            <h3 id="modal-label">جستجوی مختصات</h3>
+            <div class="input-group">
+                <label id="label-x" for="input-x">محور X (0 تا 399):</label>
+                <input type="number" id="input-x" min="0" max="399" placeholder="مثال: 200">
+            </div>
+            <div class="input-group">
+                <label id="label-y" for="input-y">محور Y (0 تا 249):</label>
+                <input type="number" id="input-y" min="0" max="249" placeholder="مثال: 125">
+            </div>
+            <div class="modal-buttons">
+                <button id="btn-cancel">لغو</button>
+                <button id="btn-submit">برو به مختصات</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- کتابخانه فایزر ۳ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
