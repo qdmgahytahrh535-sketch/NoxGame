@@ -248,8 +248,9 @@ function getElevationLevel(x, y) {
 const TERRAIN_STEP = 2;
 const terrainCanvas = document.createElement('canvas');
 
-const TERRAIN_INNER = { r: 92, g: 82, b: 64 };
-const TERRAIN_OUTER = { r: 230, g: 213, b: 184 };
+// رنگ‌های جدید: مرکز مردابی تیره (سطح 6) با گرادیان بسیار ملایم و تدریجی به سمت لبه‌ها (سطح 1)
+const TERRAIN_INNER = { r: 75, g: 82, b: 68 };   // طیف مردابی تیره متناسب با مرکز
+const TERRAIN_OUTER = { r: 195, g: 190, b: 175 }; // طیف روشن‌ترِ ملایم برای لبه‌ها (تغییر ملایم‌تر)
 
 function terrainRGB(tx, ty) {
     let dx = tx - centerX;
