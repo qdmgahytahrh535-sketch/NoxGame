@@ -95,14 +95,15 @@ function lakeRad(l, theta) {
 }
 
 // آیا نقطه (در مختصات دنیا) داخل دریاچه است؟ (pad = فاصله ایمنی)
-function insideLake(l, wx, wy, tileSize * 3.0) {
+function insideLake(l, wx, wy, pad) {
+    if (pad === undefined) pad = tileSize * 3.0;
     let dx = wx - l.x;
     let dy = wy - l.y;
     let lx = (dx * l.cosR + dy * l.sinR) / l.aspect;
-    let ly = -dx * l.sinR + dy * l.cosR;
+    let ly = (-dx * l.sinR + dy * l.cosR);
     let d = Math.hypot(lx, ly);
     let theta = Math.atan2(ly, lx);
-    return d <= l.R * lakeRad(l, theta) + pad;
+    return d <= l.R * lakeRad(l, theta) - pad;
 }
 
 function buildLakePath(l) {
