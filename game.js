@@ -548,10 +548,80 @@ function draw() {
     }
 }
 
+
+// ---- نقشه کوچک (Minimap) و دکمه مرز سطوح ----
+const minimapCanvas = document.getElementById("minimapCanvas");
+const mctx = minimapCanvas.getContext("2d");
+const levelToggleBtn = document.getElementById("level-toggle-btn");
+let showLevelBorders = false;
+
+levelToggleBtn.addEventListener("click", () => {
+    showLevelBorders = !showLevelBorders;
+    levelToggleBtn.classList.toggle("active", showLevelBorders);
+    drawMinimap();
+});
+
+// با کلیک یا کشیدن روی مینی‌مپ دوربین حرکت کند
+minimapCanvas.addEventListener("pointerdown", (e) => {
+    const rect = minimapCanvas.getBoundingClientRect();
+    const rx = (e.clientX - rect.left) / rect.width;
+    const ry = (e.clientY - rect.top) / rect.height;
+    centerOn(rx * mapWidth * tileSize, ry * mapHeight * tileSize);
+});
+
+function drawMinimap() {
+    const mw = minimapCanvas.width;
+    const mh = minimapCanvas.height;
+    mctx.clearRect(0, 0, mw, mh);
+
+    // رسم پس‌زمینه زمین از روی terrainCanvas
+    mctx.drawImage(terrainCanvas, 0, 0, mw, mh);
+
+    if (showLevelBorders) {
+        // رسم دایره‌های هم‌مرکز مرز سطوح ۱ تا ۶
+        const cx = mw / 2;
+        const cy = mh / 2;
+        const maxR = Math.hypot(cx, cy);
+        const ratios = [0.005, 0.164, 0.331, 0.520, 0.731];
+        const colors = ["#ff595e", "#ffca3a", "#8ac926", "#1982c4", "#6a4c93"];
+
+        ratios.forEach((rSq, idx) => {
+            mctx.beginPath();
+            mctx.ellipse(cx, cy, Math.sqrt(rSq) * (mw / 2), Math.sqrt(rSq) * (mh / 2), 0, 0, Math.PI * 2);
+            mctx.strokeStyle = colors[idx];
+            mctx.lineWidth = 1.5;
+            mctx.stroke();
+        });
+    } else {
+        // نمایش دریاچه‌ها در حالت معمولی
+        mctx.fillStyle = "rgba(130, 185, 215, 0.8)";
+        for (let i = 0; i < lakes.length; i++) {
+            let lx = (lakes[i].x / (mapWidth * tileSize)) * mw;
+            let ly = (lakes[i].y / (mapHeight * tileSize)) * mh;
+            mctx.beginPath();
+            mctx.arc(lx, ly, 2, 0, Math.PI * 2);
+            mctx.fill();
+        }
+    }
+
+    // رسم کادر دید لحظه‌ای دوربین (Viewport)
+    const viewW = (window.innerWidth / zoom) / (mapWidth * tileSize) * mw;
+    const viewH = (window.innerHeight / zoom) / (mapHeight * tileSize) * mh;
+    const viewX = (cameraX / (mapWidth * tileSize)) * mw;
+    const viewY = (cameraY / (mapHeight * tileSize)) * mh;
+
+    mctx.strokeStyle = "#ffffff";
+    mctx.lineWidth = 1.5;
+    mctx.strokeRect(viewX, viewY, viewW, viewH);
+    mctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+    mctx.fillRect(viewX, viewY, viewW, viewH);
+}
+
 function loop() {
     if (needsRender) {
         needsRender = false;
         draw();
+        drawMinimap();
     }
     requestAnimationFrame(loop);
 }

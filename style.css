@@ -145,3 +145,45 @@ canvas {
     background: #386641;
     color: #fefae0;
 }
+
+#minimap-container {
+    position: fixed;
+    bottom: 15px;
+    right: 15px;
+    z-index: 9998;
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+#minimapCanvas {
+    width: 160px;
+    height: 100px;
+    background: #2b231d;
+    border: 2px solid #bcab88;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    cursor: pointer;
+}
+
+#level-toggle-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: #3b302a;
+    color: #fefae0;
+    border: 2px solid #bcab88;
+    font-size: 16px;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+#level-toggle-btn.active {
+    background: #386641;
+    border-color: #fefae0;
+    box-shadow: 0 0 10px rgba(56, 102, 65, 0.8);
+}
