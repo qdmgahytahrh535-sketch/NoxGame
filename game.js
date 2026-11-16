@@ -96,14 +96,13 @@ function lakeRad(l, theta) {
 
 // آیا نقطه (در مختصات دنیا) داخل دریاچه است؟ (pad = فاصله ایمنی)
 function insideLake(l, wx, wy, pad) {
-    if (pad === undefined) pad = tileSize * 3.0;
     let dx = wx - l.x;
     let dy = wy - l.y;
     let lx = (dx * l.cosR + dy * l.sinR) / l.aspect;
-    let ly = (-dx * l.sinR + dy * l.cosR);
+    let ly = -dx * l.sinR + dy * l.cosR;
     let d = Math.hypot(lx, ly);
     let theta = Math.atan2(ly, lx);
-    return d <= l.R * lakeRad(l, theta) - pad;
+    return d <= l.R * lakeRad(l, theta) + pad;
 }
 
 function buildLakePath(l) {
@@ -170,7 +169,7 @@ function lakeTileKeys(l) {
                 for (let j = 0; j <= 2 && !blocked; j++) {
                     let px = (tx + i / 2) * tileSize;
                     let py = (ty + j / 2) * tileSize;
-                    if (insideLake(l, wx, wy, tileSize * 3.0)) blocked = true;
+                    if (insideLake(l, px, py, pad)) blocked = true;
                 }
             }
             if (!blocked) continue;
@@ -201,24 +200,21 @@ function generateWorld() {
         lakes.push(l);
     }
 
-    let targetMountainCount = Math.floor(totalBlocks * 0.0025);
+    let targetMountainCount = Math.floor(totalBlocks * 0.02);
     while (mountainBlocks.length < targetMountainCount) {
         let rx = Math.floor(rand() * mapWidth);
         let ry = Math.floor(rand() * mapHeight);
         let lvl = getElevationLevel(rx, ry);
         if (lvl !== 6) {
             let key = `${rx},${ry}`;
-            let wx = (rx + 0.5) * tileSize;
-            let wy = (ry + 0.5) * tileSize;
-            let inAnyLake = lakes.some(l => insideLake(l, wx, wy, tileSize * 3.0));
-            if (!inAnyLake && !occupiedSet.has(key)) {
+            if (!occupiedSet.has(key)) {
                 occupiedSet.add(key);
                 mountainBlocks.push({ x: rx, y: ry });
             }
         }
     }
 
-    let targetBushCount = Math.floor(totalBlocks * 0.01);
+    let targetBushCount = Math.floor(totalBlocks * 0.02);
     while (bushBlocks.length < targetBushCount) {
         let rx = Math.floor(rand() * mapWidth);
         let ry = Math.floor(rand() * mapHeight);
@@ -249,9 +245,8 @@ function getElevationLevel(x, y) {
 const TERRAIN_STEP = 2;
 const terrainCanvas = document.createElement('canvas');
 
-// رنگ‌های جدید: مرکز مردابی تیره (سطح 6) با گرادیان بسیار ملایم و تدریجی به سمت لبه‌ها (سطح 1)
-const TERRAIN_INNER = { r: 75, g: 82, b: 68 };   // طیف مردابی تیره متناسب با مرکز
-const TERRAIN_OUTER = { r: 195, g: 190, b: 175 }; // طیف روشن‌ترِ ملایم برای لبه‌ها (تغییر ملایم‌تر)
+const TERRAIN_INNER = { r: 92, g: 82, b: 64 };
+const TERRAIN_OUTER = { r: 230, g: 213, b: 184 };
 
 function terrainRGB(tx, ty) {
     let dx = tx - centerX;
@@ -423,8 +418,8 @@ function drawMountain(m) {
     if (!m.shape) {
         m.shape = {
             dx: (hash01(m.x, m.y, 1) - 0.5) * tileSize * 0.1,
-            w: tileSize * (0.8 + hash01(m.x, m.y, 2) * 0.35) * 4,
-            h: tileSize * (0.65 + hash01(m.x, m.y, 3) * 0.4) * 4,
+            w: tileSize * (0.8 + hash01(m.x, m.y, 2) * 0.35),
+            h: tileSize * (0.65 + hash01(m.x, m.y, 3) * 0.4),
             ps: (hash01(m.x, m.y, 4) - 0.5) * 0.3,
             side: hash01(m.x, m.y, 5) > 0.4,
             dir: hash01(m.x, m.y, 6) < 0.5 ? -1 : 1
@@ -550,97 +545,10 @@ function draw() {
     }
 }
 
-
-// ---- نقشه کوچک (Minimap) و دکمه مرز سطوح ----
-const minimapCanvas = document.getElementById("minimapCanvas");
-const mctx = minimapCanvas.getContext("2d");
-const levelToggleBtn = document.getElementById("level-toggle-btn");
-let showLevelBorders = false;
-
-levelToggleBtn.addEventListener("click", () => {
-    showLevelBorders = !showLevelBorders;
-    levelToggleBtn.classList.toggle("active", showLevelBorders);
-    drawMinimap();
-});
-
-// با کلیک یا کشیدن روی مینی‌مپ دوربین حرکت کند
-minimapCanvas.addEventListener("pointerdown", (e) => {
-    const rect = minimapCanvas.getBoundingClientRect();
-    const rx = (e.clientX - rect.left) / rect.width;
-    const ry = (e.clientY - rect.top) / rect.height;
-    centerOn(rx * mapWidth * tileSize, ry * mapHeight * tileSize);
-});
-
-function drawMinimap() {
-    const mw = minimapCanvas.width;
-    const mh = minimapCanvas.height;
-    mctx.clearRect(0, 0, mw, mh);
-
-    if (showLevelBorders) {
-        const stepX = Math.max(1, Math.floor(mapWidth / 25));
-        const stepY = Math.max(1, Math.floor(mapHeight / 25));
-        
-        const levelColors = {
-            1: "#ffffff",
-            2: "#fefae0",
-            3: "#ffb703",
-            4: "#386641",
-            5: "#132a13",
-            6: "#4b5244"
-        };
-
-        for (let x = 0; x < mapWidth; x += stepX) {
-            for (let y = 0; y < mapHeight; y += stepY) {
-                let lvl = getElevationLevel(x, y);
-                mctx.fillStyle = levelColors[lvl] || "#3b302a";
-                let px = (x / mapWidth) * mw;
-                let py = (y / mapHeight) * mh;
-                let pw = (stepX / mapWidth) * mw + 0.5;
-                let ph = (stepY / mapHeight) * mh + 0.5;
-                mctx.fillRect(px, py, pw, ph);
-            }
-        }
-
-        mctx.font = "bold 9px sans-serif";
-        mctx.fillStyle = "#000000";
-        mctx.textAlign = "center";
-        mctx.textBaseline = "middle";
-        mctx.fillText("6", mw / 2, mh / 2);
-        mctx.fillText("1", mw * 0.15, mh * 0.15);
-        mctx.fillText("2", mw * 0.3, mh * 0.3);
-        mctx.fillText("3", mw * 0.45, mh * 0.45);
-        mctx.fillText("4", mw * 0.6, mh * 0.6);
-        mctx.fillText("5", mw * 0.75, mh * 0.75);
-
-    } else {
-        mctx.drawImage(terrainCanvas, 0, 0, mw, mh);
-        mctx.fillStyle = "rgba(130, 185, 215, 0.8)";
-        for (let i = 0; i < lakes.length; i++) {
-            let lx = (lakes[i].x / (mapWidth * tileSize)) * mw;
-            let ly = (lakes[i].y / (mapHeight * tileSize)) * mh;
-            mctx.beginPath();
-            mctx.arc(lx, ly, 1.5, 0, Math.PI * 2);
-            mctx.fill();
-        }
-    }
-
-    const viewW = (window.innerWidth / zoom) / (mapWidth * tileSize) * mw;
-    const viewH = (window.innerHeight / zoom) / (mapHeight * tileSize) * mh;
-    const viewX = (cameraX / (mapWidth * tileSize)) * mw;
-    const viewY = (cameraY / (mapHeight * tileSize)) * mh;
-
-    mctx.strokeStyle = "#ff0054";
-    mctx.lineWidth = 1.5;
-    mctx.strokeRect(viewX, viewY, viewW, viewH);
-    mctx.fillStyle = "rgba(255, 0, 84, 0.15)";
-    mctx.fillRect(viewX, viewY, viewW, viewH);
-}
-
 function loop() {
     if (needsRender) {
         needsRender = false;
         draw();
-        drawMinimap();
     }
     requestAnimationFrame(loop);
 }
@@ -651,7 +559,7 @@ const coordDisplay = document.getElementById('coord-display');
 function selectBlock(tx, ty) {
     selectedBlock = { x: tx, y: ty };
     let lvl = getElevationLevel(tx, ty);
-    coordDisplay.innerHTML = `سطح ${lvl} <br><span style="font-size: 12px; color: #bcab88;">X: ${tx} | Y: ${ty}</span>`;
+    coordDisplay.innerHTML = `X: ${tx} | Y: ${ty} <br><span style="color: #d4c2a0; font-weight: bold;">سطح ${lvl}</span>`;
     coordDisplay.classList.remove('modal-hidden');
     requestRender();
 }
